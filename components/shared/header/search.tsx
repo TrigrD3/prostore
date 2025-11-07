@@ -8,10 +8,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getAllCategories } from '@/lib/actions/product.actions';
+import { logger } from '@/lib/logger';
 import { SearchIcon } from 'lucide-react';
 
 const Search = async () => {
-  const categories = await getAllCategories();
+  let categories: Awaited<ReturnType<typeof getAllCategories>> = [];
+
+  try {
+    categories = await getAllCategories();
+  } catch (error) {
+    logger.error(
+      { err: error, event: 'header.search.categories_failed' },
+      'Failed to load categories for search bar'
+    );
+  }
 
   return (
     <form action='/search' method='GET'>

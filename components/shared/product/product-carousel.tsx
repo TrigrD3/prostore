@@ -28,27 +28,32 @@ const ProductCarousel = ({ data }: { data: Product[] }) => {
       ]}
     >
       <CarouselContent>
-        {data.map((product: Product) => (
-          <CarouselItem key={product.id}>
-            <Link href={`/product/${product.slug}`}>
-              <div className='relative mx-auto'>
-                <Image
-                  src={product.banner!}
-                  alt={product.name}
-                  height='0'
-                  width='0'
-                  sizes='100vw'
-                  className='w-full h-auto'
-                />
-                <div className='absolute inset-0 flex items-end justify-center'>
-                  <h2 className='bg-gray-900 bg-opacity-50 text-2xl font-bold px-2 text-white'>
-                    {product.name}
-                  </h2>
+        {data.map((product: Product) => {
+          const heroImage = product.banner ?? product.images?.[0];
+          if (!heroImage) return null;
+
+          return (
+            <CarouselItem key={product.id}>
+              <Link href={`/product/${product.slug}`}>
+                <div className='relative mx-auto aspect-[16/9] w-full overflow-hidden rounded-md'>
+                  <Image
+                    src={heroImage}
+                    alt={product.name}
+                    fill
+                    sizes='100vw'
+                    className='object-cover'
+                    priority={product.isFeatured}
+                  />
+                  <div className='absolute inset-0 flex items-end justify-center'>
+                    <h2 className='bg-gray-900 bg-opacity-50 text-2xl font-bold px-2 text-white'>
+                      {product.name}
+                    </h2>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          </CarouselItem>
-        ))}
+              </Link>
+            </CarouselItem>
+          );
+        })}
       </CarouselContent>
       <CarouselPrevious />
       <CarouselNext />

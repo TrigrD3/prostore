@@ -103,6 +103,20 @@ openssl rand -base64 32
 NEXTAUTH_SECRET="xmVpackzg9sdkEPzJsdGse3dskUY+4ni2quxvoK6Go="
 ```
 
+#### Encryption Key
+
+This key is required for hashing user passwords. Generate a random value and add it to your `.env`:
+
+```bash
+openssl rand -hex 32
+```
+
+**Example:**
+
+```
+ENCRYPTION_KEY="a3f4c8d3f5ab9d6e2c0f1a7b4c9e0d1f3a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9"
+```
+
 #### PayPal Client ID and Secret
 
 Create a PayPal developer account and create a new app to get the client ID and secret.
@@ -165,6 +179,24 @@ npm run export
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### Docker Compose
+
+```bash
+# Copy the example env file and update the values
+cp .example-env .env.docker
+
+# Start the stack
+docker compose up --build
+
+# Apply Prisma migrations (first run only)
+docker compose run --rm app npx prisma migrate deploy
+
+# Seed the database (optional)
+docker compose run --rm app npx tsx ./db/seed
+```
+
+The app is available at [http://localhost:3000](http://localhost:3000) and Postgres at `localhost:5432`. Edit `.env.docker` to suit your installation.
 
 ## Prisma Studio
 

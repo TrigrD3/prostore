@@ -1,29 +1,21 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { PrismaNeon } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
-// Sets up WebSocket connections, which enables Neon to use WebSocket communication.
-neonConfig.webSocketConstructor = ws;
-const connectionString = `${process.env.DATABASE_URL}`;
+const connectionString = process.env.DATABASE_URL;
+const isNeon = connectionString?.includes('neon.tech');
 
-// Creates a new connection pool using the provided connection string, allowing multiple concurrent connections.
-const pool = new Pool({ connectionString });
-
-// Instantiates the Prisma adapter using the Neon connection pool to handle the connection between Prisma and Neon.
-const adapter = new PrismaNeon(pool);
-
-// Extends the PrismaClient with a custom result transformer to convert the price and rating fields to strings.
-export const prisma = new PrismaClient({ adapter }).$extends({
+const baseExtension = {
   result: {
     product: {
       price: {
-        compute(product) {
+        compute(product: { price: { toString: () => string } }) {
           return product.price.toString();
         },
       },
       rating: {
-        compute(product) {
+        compute(product: { rating: { toString: () => string } }) {
           return product.rating.toString();
         },
       },
@@ -31,25 +23,25 @@ export const prisma = new PrismaClient({ adapter }).$extends({
     cart: {
       itemsPrice: {
         needs: { itemsPrice: true },
-        compute(cart) {
+        compute(cart: { itemsPrice: { toString: () => string } }) {
           return cart.itemsPrice.toString();
         },
       },
       shippingPrice: {
         needs: { shippingPrice: true },
-        compute(cart) {
+        compute(cart: { shippingPrice: { toString: () => string } }) {
           return cart.shippingPrice.toString();
         },
       },
       taxPrice: {
         needs: { taxPrice: true },
-        compute(cart) {
+        compute(cart: { taxPrice: { toString: () => string } }) {
           return cart.taxPrice.toString();
         },
       },
       totalPrice: {
         needs: { totalPrice: true },
-        compute(cart) {
+        compute(cart: { totalPrice: { toString: () => string } }) {
           return cart.totalPrice.toString();
         },
       },
@@ -57,35 +49,60 @@ export const prisma = new PrismaClient({ adapter }).$extends({
     order: {
       itemsPrice: {
         needs: { itemsPrice: true },
-        compute(cart) {
-          return cart.itemsPrice.toString();
+        compute(order: { itemsPrice: { toString: () => string } }) {
+          return order.itemsPrice.toString();
         },
       },
       shippingPrice: {
         needs: { shippingPrice: true },
-        compute(cart) {
-          return cart.shippingPrice.toString();
+        compute(order: { shippingPrice: { toString: () => string } }) {
+          return order.shippingPrice.toString();
         },
       },
       taxPrice: {
         needs: { taxPrice: true },
-        compute(cart) {
-          return cart.taxPrice.toString();
+        compute(order: { taxPrice: { toString: () => string } }) {
+          return order.taxPrice.toString();
         },
       },
       totalPrice: {
         needs: { totalPrice: true },
-        compute(cart) {
-          return cart.totalPrice.toString();
+        compute(order: { totalPrice: { toString: () => string } }) {
+          return order.totalPrice.toString();
         },
       },
     },
     orderItem: {
       price: {
-        compute(cart) {
-          return cart.price.toString();
+        compute(orderItem: { price: { toString: () => string } }) {
+          return orderItem.price.toString();
         },
       },
     },
   },
-});
+};
+
+const extendClient = (client: PrismaClient) => client.$extends(baseExtension);
+
+type ExtendedPrismaClient = ReturnType<typeof extendClient>;
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: ExtendedPrismaClient;
+};
+
+const createClient = (): ExtendedPrismaClient => {
+  if (isNeon && connectionString) {
+    neonConfig.webSocketConstructor = ws;
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+    return extendClient(new PrismaClient({ adapter }));
+  }
+
+  return extendClient(new PrismaClient());
+};
+
+export const prisma = globalForPrisma.prisma ?? createClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}

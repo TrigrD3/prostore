@@ -9,6 +9,7 @@ import { getMyCart } from '@/lib/actions/cart.actions';
 import ReviewList from './review-list';
 import { auth } from '@/auth';
 import Rating from '@/components/shared/product/rating';
+import { logger } from '@/lib/logger';
 
 const ProductDetailsPage = async (props: {
   params: Promise<{ slug: string }>;
@@ -16,12 +17,29 @@ const ProductDetailsPage = async (props: {
   const { slug } = await props.params;
 
   const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  if (!product) {
+    logger.warn(
+      { event: 'product.view.not_found', slug },
+      'Product not found for slug'
+    );
+    notFound();
+  }
 
   const session = await auth();
   const userId = session?.user?.id;
 
   const cart = await getMyCart();
+
+  logger.info(
+    {
+      event: 'product.view.rendered',
+      slug,
+      productId: product.id,
+      userId,
+      stock: product.stock,
+    },
+    'Served product detail page'
+  );
 
   return (
     <>

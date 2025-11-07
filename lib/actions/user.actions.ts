@@ -18,6 +18,7 @@ import { PAGE_SIZE } from '../constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
+import { logger } from '@/lib/logger';
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -49,7 +50,10 @@ export async function signOutUser() {
   if (currentCart?.id) {
     await prisma.cart.delete({ where: { id: currentCart.id } });
   } else {
-    console.warn('No cart found for deletion.');
+    logger.warn(
+      { event: 'auth.signOut.missing_cart' },
+      'No cart found for deletion'
+    );
   }
   await signOut();
 }
