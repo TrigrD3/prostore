@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { NextRequest } from 'next/server';
-import UAParser from 'ua-parser-js';
+import { UAParser } from 'ua-parser-js';
 import type { Logger } from 'pino';
 
 import { logger } from './logger';

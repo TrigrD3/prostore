@@ -2,6 +2,7 @@ import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 export const authConfig = {
+  trustHost: true,
   providers: [], // Required by NextAuthConfig type
   callbacks: {
     authorized({ request, auth }) {

@@ -41,3 +41,7 @@ next-env.d.ts
 
 #k8s
 /prostore-app
+/k8s
+
+helm-deploy*
+build-and*

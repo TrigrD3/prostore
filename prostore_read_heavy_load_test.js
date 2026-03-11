@@ -2,14 +2,18 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 
-/**
- * Prostore read-heavy scenario inspired by the Katalink test.
- * Customize BASE_URL via `k6 run --env BASE_URL=http://localhost:3000 prostore_read_heavy_load_test.js`
- * when running against Docker Compose or any deployed environment.
- */
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
-// Sample slugs generated from the default seed data. Update as you add new fixtures.
+const BASE_URL = __ENV.BASE_URL || 'https://prostore.katalink.id';
+// const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
+
+const API_BASE_URL = `${BASE_URL}/api/products`;
+const JSON_HEADERS = {
+  headers: {
+    Accept: 'application/json',
+  },
+};
+
+
 const productSlugs = new SharedArray('productSlugs', () => [
   'polo-sporting-stretch-shirt',
   'brooks-brothers-long-sleeved-shirt',
@@ -19,14 +23,31 @@ const productSlugs = new SharedArray('productSlugs', () => [
   'polo-classic-pink-hoodie',
 ]);
 
+const searchCombos = new SharedArray('searchCombos', () => [
+  { q: 'polo', category: "Men's Dress Shirts" },
+  { q: 'shirt', category: 'all' },
+  { q: 'hoodie', category: "Men's Sweatshirts" },
+  { q: 'all', category: 'all' },
+]);
+
 const randomItem = (items) =>
   items[Math.floor(Math.random() * items.length)];
 
+const safeJson = (response) => {
+  try {
+    return response.json();
+  } catch (error) {
+    return null;
+  }
+};
+
+const thinkTime = () => sleep(1 + Math.random() * 2);
+
 export const options = {
   stages: [
-    { duration: '30s', target: 20 },
-    { duration: '2m', target: 20 },
-    { duration: '30s', target: 0 },
+    { duration: '60s', target: 270 },
+    { duration: '5m', target: 270 },
+    { duration: '60s', target: 0 },
   ],
   thresholds: {
     http_req_duration: ['p(95)<1000'],
@@ -37,19 +58,47 @@ export const options = {
 };
 
 export default function () {
-  if (!productSlugs.length) {
-    console.warn('No product slugs provided for the k6 test run.');
-    sleep(1);
-    return;
+  // 1. Mengambil daftar produk terbaru
+  const latestRes = http.get(`${API_BASE_URL}/latest`, JSON_HEADERS);
+  const latestPayload = safeJson(latestRes);
+  check(latestRes, {
+    'latest status 200': (r) => r.status === 200,
+    'latest returns array': () =>
+      latestPayload &&
+      Array.isArray(latestPayload.data) &&
+      latestPayload.data.length >= 0,
+  });
+  thinkTime();
+
+  // 2. Mensimulasikan penelusuran katalog melalui API pencarian
+  if (searchCombos.length) {
+    const combo = randomItem(searchCombos);
+    const searchUrl = `${API_BASE_URL}/search?category=${encodeURIComponent(
+      combo.category
+    )}&q=${encodeURIComponent(combo.q)}`;
+    const searchRes = http.get(searchUrl, JSON_HEADERS);
+    const searchPayload = safeJson(searchRes);
+    check(searchRes, {
+      'search status 200': (r) => r.status === 200,
+      'search returns products array': () =>
+        searchPayload &&
+        Array.isArray(searchPayload.data) &&
+        searchPayload.pagination?.page >= 1,
+    });
+  }
+  thinkTime();
+
+  // 3. Mensimulasikan penelusuran katalog melalui API pencarian
+  if (productSlugs.length) {
+    const slug = randomItem(productSlugs);
+    const productRes = http.get(`${API_BASE_URL}/${slug}`, JSON_HEADERS);
+    const productPayload = safeJson(productRes);
+    check(productRes, {
+      'product status 200': (r) => r.status === 200,
+      'product payload matches slug': () =>
+        productPayload?.data?.slug === slug,
+    });
   }
 
-  const slug = randomItem(productSlugs);
-  const requestUrl = `${BASE_URL}/product/${slug}`;
-  const res = http.get(requestUrl);
-  check(res, {
-    'product status 200': (r) => r.status === 200,
-    'product page has title text': (r) =>
-      r.body && r.body.toLowerCase().includes('add to cart'),
-  });
-  sleep(0.5 + Math.random());
+  thinkTime();
 }

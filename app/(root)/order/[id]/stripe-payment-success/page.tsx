@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-
 const SuccessPage = async (props: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ payment_intent: string }>;
@@ -17,7 +15,12 @@ const SuccessPage = async (props: {
   const order = await getOrderById(id);
   if (!order) notFound();
 
-  // Retrieve payment intent
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    return redirect(`/order/${id}`);
+  }
+
+  const stripe = new Stripe(stripeSecretKey);
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
   // Check if payment intent is valid
