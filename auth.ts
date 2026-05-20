@@ -60,15 +60,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig.callbacks,
     async session({ session, user, trigger, token }) {
       // Set the user ID from the token
-      session.user.id = token.sub;
-      session.user.role = token.role;
-      session.user.name = token.name;
+      session.user.id = (token.id as string) || token.sub;
+      session.user.role = token.role as string;
+      session.user.name = token.name as string;
 
       // If there is an update, set the user name
-      if (trigger === 'update') {
-        session.user.name = user.name;
+      if (trigger === 'update' && user) {
+        session.user.name = user.name as string;
       }
 
+      console.log(`[DEBUG] Session callback: user=${session.user.email}, role=${session.user.role}`);
       return session;
     },
     async jwt({ token, user, trigger, session }) {
@@ -76,6 +77,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name as string;
+        console.log(`[DEBUG] JWT callback (initial sign-in): user=${user.email}, role=${user.role}`);
 
         // If user has no name then use the email
         if (user.name === 'NO_NAME') {
@@ -84,7 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Update database to reflect the token name
           await prisma.user.update({
             where: { id: user.id },
-            data: { name: token.name },
+            data: { name: token.name as string },
           });
         }
 

@@ -139,13 +139,14 @@ export async function deleteProduct(id: string) {
 export async function createProduct(data: z.infer<typeof insertProductSchema>) {
   try {
     const product = insertProductSchema.parse(data);
-    await prisma.product.create({ data: product });
+    const newProduct = await prisma.product.create({ data: product });
 
     revalidatePath('/admin/products');
 
     return {
       success: true,
       message: 'Product created successfully',
+      data: newProduct,
     };
   } catch (error) {
     return { success: false, message: formatError(error) };
